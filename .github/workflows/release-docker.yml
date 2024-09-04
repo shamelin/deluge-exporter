@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v2
       -
         name: Downcase repo
-        run: echo REPOSITORY=ngosang/deluge-exporter >> $GITHUB_ENV
+        run: echo REPOSITORY=shamelin/deluge-exporter >> $GITHUB_ENV
       -
         name: Docker metadata
         id: docker_metadata
