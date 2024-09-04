@@ -14,11 +14,15 @@ class DelugeCollector(object):
         self,
         deluge_url: str,
         deluge_password: str,
+        deluge_basic_user: str = None,
+        deluge_basic_password: str = None,
     ):
         self.deluge_api_url = (
             deluge_url if deluge_url.endswith("/") else deluge_url + "/"
         ) + "json"
         self.deluge_password = deluge_password
+        self.deluge_basic_user = deluge_basic_user
+        self.deluge_basic_password = deluge_basic_password
         self.session = requests.Session()
         self.metrics = {}
         self.get_deluge_stats()
@@ -75,7 +79,11 @@ class DelugeCollector(object):
     def get_login(self):
         logging.info("Loging in Deluge Web UI...")
         payload = {"method": "auth.login", "params": [self.deluge_password], "id": 1}
-        response = self.session.post(self.deluge_api_url, json=payload)
+        response = self.session.post(
+            self.deluge_api_url,
+            json=payload,
+            auth=(self.deluge_basic_user, self.deluge_basic_password),
+        )
         if response.status_code != 200:
             raise Exception(
                 f"Get login error! Bad HTTP Code: {response.status_code} Response: {response.text}"
@@ -88,7 +96,11 @@ class DelugeCollector(object):
     def get_connection(self):
         logging.info("Connecting Deluge Web UI...")
         payload = {"method": "web.get_hosts", "params": [], "id": 1}
-        response = self.session.post(self.deluge_api_url, json=payload)
+        response = self.session.post(
+            self.deluge_api_url,
+            json=payload,
+            auth=(self.deluge_basic_user, self.deluge_basic_password),
+        )
         if response.status_code != 200:
             raise Exception(
                 f"Get connection error! Bad HTTP Code: {response.status_code} Response: {response.text}"
@@ -119,7 +131,11 @@ class DelugeCollector(object):
             "params": [["label"], {"label": "fake_label"}],
             "id": 1,
         }
-        response = self.session.post(self.deluge_api_url, json=payload)
+        response = self.session.post(
+            self.deluge_api_url,
+            json=payload,
+            auth=(self.deluge_basic_user, self.deluge_basic_password),
+        )
         if response.status_code != 200:
             raise Exception(
                 f"Get stats error! Bad HTTP Code: {response.status_code} Response: {response.text}"
@@ -153,10 +169,18 @@ def main():
         )
         sys.exit(1)
 
+    # If the credentials are not provided, we will try to connect without them
+    try:
+        deluge_basic_user = os.environ["DELUGE_BASIC_USER"]
+        deluge_basic_password = os.environ["DELUGE_BASIC_PASSWORD"]
+    except Exception:
+        deluge_basic_user = None
+        deluge_basic_password = None
+
     exporter_address = os.environ.get("LISTEN_ADDRESS", "0.0.0.0")
     exporter_port = int(os.environ.get("LISTEN_PORT", 8011))
 
-    collector = DelugeCollector(deluge_url, deluge_password)
+    collector = DelugeCollector(deluge_url, deluge_password, deluge_basic_user, deluge_basic_password)
 
     prometheus_client.core.REGISTRY.register(collector)
     prometheus_client.start_http_server(exporter_port, exporter_address)
